@@ -4,8 +4,6 @@ use nix::unistd::{close, read, write};
 use std::os::fd::RawFd;
 
 fn main() {
-    println!("Hello, world!");
-
     // Access a raw file descriptor for a socket
     let fd = socket(AddressFamily::Inet, SockType::Stream, SockFlag::empty(), None).unwrap();
 
@@ -28,19 +26,27 @@ fn main() {
             }
         };
 
-        // Do something with the connection
-        handle_conn(conn_fd);
+        // Handle the requests of a single connection until something goes wrong
+        loop {
+            // Handle the request, shut down connection on error
+            if let Err(errno) = handle_request(conn_fd) {
+                println!("Client error: {}", errno);
+                break;
+            }
+        }
 
         // Close the connection
         close(conn_fd).expect("close()");
     }
 }
 
-fn handle_conn(fd: RawFd) {
+fn handle_request(fd: RawFd) -> nix::Result<()> {
     let mut rbuf: [u8; 64] = [0; 64];
-    let rsize = read(fd, &mut rbuf).expect("read()");
+    let rsize = read(fd, &mut rbuf)?;
 
     println!("Client says: {}", String::from_utf8(rbuf.to_vec()).unwrap());
 
-    write(fd, "world".as_bytes()).expect("write()");
+    write(fd, "world".as_bytes())?;
+
+    Ok(())
 }
